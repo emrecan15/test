@@ -1,0 +1,27 @@
+package com.filmonersene.website.controllers;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.filmonersene.website.repositories.MovieRepository;
+import com.filmonersene.website.services.abstracts.MovieService;
+import com.filmonersene.website.services.concretes.MovieManager;
+
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping("/api/movie")
+@AllArgsConstructor
+public class MovieController {
+	
+	private final MovieRepository movieRepository;
+	private final MovieService movieService;
+
+	
+	@PostMapping("/save")
+	public ResponseEntity<String> saveMovie(){
+		return null;
+	}
+}

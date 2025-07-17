@@ -1,0 +1,23 @@
+package com.filmonersene.website.services.concretes;
+
+import org.springframework.stereotype.Service;
+
+import com.filmonersene.website.dtos.request.CreateUserRequest;
+import com.filmonersene.website.dtos.response.CreateUserResponse;
+import com.filmonersene.website.repositories.UserRepository;
+import com.filmonersene.website.services.abstracts.UserService;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class UserManager implements UserService {
+
+	private final UserRepository userRepository;
+	
+	@Override
+	public CreateUserResponse createUser(CreateUserRequest createUserRequest) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}

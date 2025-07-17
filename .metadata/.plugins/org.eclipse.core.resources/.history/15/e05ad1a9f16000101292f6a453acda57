@@ -1,0 +1,10 @@
+package com.filmonersene.website.services.abstracts;
+
+import com.filmonersene.website.dtos.request.CreateUserRequest;
+import com.filmonersene.website.dtos.request.LoginRequest;
+import com.filmonersene.website.dtos.response.CreateUserResponse;
+import com.filmonersene.website.dtos.response.LoginResponse;
+
+public interface UserService {
+	CreateUserResponse createUser(CreateUserRequest createUserRequest);
+}

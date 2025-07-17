@@ -1,0 +1,11 @@
+// film öner modal
+        $(document).ready(function() {
+            $("#modalContainer").load("film-oneri-modal.html", function(response, status, xhr) {
+                if (status === "success") {
+                    console.log("Modal başarıyla yüklendi.");
+                    window.filmOneriSistemi = new FilmOneriSistemi(); // Modal yüklendikten sonra başlat
+                } else {
+                    console.error("Modal yüklenemedi:", status, xhr.status, xhr.statusText);
+                }
+            });
+        });

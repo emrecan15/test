@@ -1,0 +1,197 @@
+package com.filmonersene.website.services.concretes;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import com.filmonersene.website.dtos.request.GenreDTO;
+import com.filmonersene.website.dtos.request.SaveMovieRequest;
+import com.filmonersene.website.dtos.response.GetMoviesResponse;
+import com.filmonersene.website.dtos.response.RecommendedByDto;
+import com.filmonersene.website.dtos.response.SaveMovieResponse;
+import com.filmonersene.website.entities.Genre;
+import com.filmonersene.website.entities.Movie;
+import com.filmonersene.website.entities.MovieLike;
+import com.filmonersene.website.entities.User;
+import com.filmonersene.website.repositories.GenreRepository;
+import com.filmonersene.website.repositories.MovieLikeRepository;
+import com.filmonersene.website.repositories.MovieRepository;
+import com.filmonersene.website.repositories.UserRepository;
+import com.filmonersene.website.services.abstracts.MovieService;
+
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class MovieManager implements MovieService {
+	
+	private final MovieRepository movieRepository;
+	private final GenreRepository genreRepository;
+	private final MovieLikeRepository movieLikeRepository;
+	private final UserRepository userRepository;
+
+
+	@Override
+	public SaveMovieResponse saveMovie(SaveMovieRequest saveMovieRequest,User user) {
+		if(movieRepository.existsByImdbId(saveMovieRequest.getImdbId()))
+		{
+			return new SaveMovieResponse("Bu film daha önce eklenmiş.");
+		}
+	
+		Movie movie = new Movie();
+		movie.setPosterUrl(saveMovieRequest.getPosterUrl());
+		movie.setBackdropUrl(saveMovieRequest.getBackdropUrl());
+		movie.setMovieName(saveMovieRequest.getMovieName());
+		movie.setOriginalTitle(saveMovieRequest.getOriginalTitle());
+		movie.setDescription(saveMovieRequest.getDescription());
+		movie.setReleaseDate(saveMovieRequest.getReleaseDate());
+		movie.setRuntime(saveMovieRequest.getRuntime());
+		movie.setImdbId(saveMovieRequest.getImdbId());
+		movie.setVoteAverage(saveMovieRequest.getVoteAverage());
+		movie.setOriginalLanguage(saveMovieRequest.getOriginalLanguage());
+		movie.setCountry(saveMovieRequest.getCountry());
+		movie.setPopularity(saveMovieRequest.getPopularity());
+		movie.setUserComment(saveMovieRequest.getUserComment());
+		movie.setRecommendedBy(user);
+		
+		Set<Genre> genres = new HashSet<>();
+
+	    for (GenreDTO genreDto : saveMovieRequest.getGenres()) {
+	        Genre genre = genreRepository.findByTmdbId(genreDto.getTmdbId())
+	                .orElseGet(() -> {
+	                    Genre newGenre = new Genre();
+	                    newGenre.setTmdbId(genreDto.getTmdbId());
+	                    newGenre.setName(genreDto.getName());
+	                    return genreRepository.save(newGenre);
+	                });
+
+	        genres.add(genre);
+	    }
+
+	    movie.setGenres(genres);
+
+	    movieRepository.save(movie);
+
+	    return new SaveMovieResponse("Film başarıyla kaydedildi.");
+
+	}
+
+
+	@Override
+	public List<GetMoviesResponse> getAllMovies() {
+		
+        List<Movie> movies = movieRepository.findTop7ByOrderByCreatedAtDesc();
+
+        return movies.stream()
+            .map(this::convertToDto)
+            .collect(Collectors.toList());
+	}
+	
+	private GetMoviesResponse convertToDto(Movie movie) {
+
+        Set<GenreDTO> genres = movie.getGenres().stream()
+            .map(genre -> new GenreDTO(genre.getTmdbId(), genre.getName()))
+            .collect(Collectors.toSet());
+
+        RecommendedByDto recommendedBy = null;
+        if (movie.getRecommendedBy() != null) {
+            recommendedBy = new RecommendedByDto(
+                movie.getRecommendedBy().getId(),
+                movie.getRecommendedBy().getUsername(),
+                movie.getRecommendedBy().getTag() != null ? movie.getRecommendedBy().getTag().getName() : null
+            );
+        }
+        Double voteAverage = movie.getVoteAverage();
+        if(voteAverage != null)
+        {
+        	voteAverage = Math.round(movie.getVoteAverage() * 10) / 10.0;
+        }
+        
+
+        
+        return new GetMoviesResponse(
+            movie.getId(),
+            movie.getPosterUrl(),
+            movie.getMovieName(),
+            voteAverage,
+            genres,
+            recommendedBy
+        );
+    }
+
+
+	@Override
+	public ResponseEntity<?> likeMovie(Long movieId, UserDetails userDetails, String guestId) {
+		
+		Optional<Movie> movieOpt = movieRepository.findById(movieId);
+        if (movieOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Movie movie = movieOpt.get();
+
+        if (userDetails != null) {
+            return handleUserLike(userDetails, movie);
+        } else if (guestId != null && !guestId.isBlank()) {
+            return handleGuestLike(guestId, movie);
+        } else {
+            return ResponseEntity.badRequest().body("Guest ID missing");
+        }
+	}
+	
+	
+	private ResponseEntity<?> handleUserLike(UserDetails userDetails, Movie movie) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+        		.orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean alreadyLiked = movieLikeRepository.existsByUserAndMovie(user, movie);
+        if (alreadyLiked) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Already liked");
+        }
+
+        MovieLike like = new MovieLike();
+        like.setUser(user);
+        like.setMovie(movie);
+        movieLikeRepository.save(like);
+
+        incrementMovieOwnerScore(movie);
+
+        return ResponseEntity.ok().build();
+    }
+
+    private ResponseEntity<?> handleGuestLike(String guestId, Movie movie) {
+        boolean alreadyLiked = movieLikeRepository.existsByGuestIdAndMovie(guestId, movie);
+        if (alreadyLiked) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Already liked");
+        }
+
+        MovieLike like = new MovieLike();
+        like.setGuestId(guestId);
+        like.setMovie(movie);
+        movieLikeRepository.save(like);
+
+        incrementMovieOwnerScore(movie);
+
+        return ResponseEntity.ok().build();
+    }
+
+    private void incrementMovieOwnerScore(Movie movie) {
+        User user = movie.getRecommendedBy();
+        if (user != null && movie.getRecommendedBy().getId().equals(user.getId())) {
+            return; 
+        }
+        System.out.println("Kullanıcının like öncesi puanı : "+user.getPoints());
+        user.setPoints(user.getPoints()+1);
+        System.out.println("Like sonrası : "+user.getPoints());
+        userRepository.save(user);
+    }
+
+}

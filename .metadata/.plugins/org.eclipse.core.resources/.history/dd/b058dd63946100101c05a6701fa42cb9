@@ -1,0 +1,96 @@
+package com.filmonersene.website.controllers;
+
+
+import java.util.Map;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.filmonersene.website.dtos.request.LoginRequest;
+import com.filmonersene.website.repositories.UserRepository;
+import com.filmonersene.website.security.JwtUtil;
+
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping("/api/auth")
+@AllArgsConstructor
+public class AuthController {
+	
+	private final AuthenticationManager authenticationManager;
+	private final UserRepository userRepository;
+	private final JwtUtil jwtUtil;
+	
+	@PostMapping("/login")
+	public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletResponse response){
+		try {
+		Authentication authentication= authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getEmail(),loginRequest.getPassword()));
+		
+		UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+		
+		String token = jwtUtil.generateToken(userDetails.getUsername());
+		
+		ResponseCookie jwtCookie = ResponseCookie.from("token", token)
+                .httpOnly(true)
+                .secure(false) // HTTPS kullanıyorsan true 
+                .path("/")
+                .maxAge(24 * 60 * 60) // 1 gün
+                .sameSite("Lax") 
+                .build();
+		
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookie.toString());
+
+		
+		return ResponseEntity.ok(Map.of("username",userDetails.getUsername(),"roles",userDetails.getAuthorities()));
+		
+		}
+		catch (BadCredentialsException e) {
+			return ResponseEntity.status(401).body("Invalid Credentials");
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(500).body("Authentication Failed.");
+		}
+		
+	}
+	
+	@GetMapping("/status")
+	public ResponseEntity<?> getStatus(Authentication auth)
+	{
+		
+		if (auth == null) {
+	        return ResponseEntity.ok(Map.of("authenticated", false, "message", "auth is null"));
+	    }
+	    
+	    System.out.println("Auth class: " + auth.getClass());
+	    System.out.println("Auth name: " + auth.getName());
+	    System.out.println("Auth principal: " + auth.getPrincipal());
+		
+		
+		boolean isLoggedIn = auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
+		if (isLoggedIn) {
+	        String username = auth.getName(); // 👈 Kullanıcı adı burada
+	        return ResponseEntity.ok(Map.of(
+	            "authenticated", true,
+	            "username", username
+	        ));
+
+	    } else {
+	        return ResponseEntity.ok(Map.of("authenticated", false));
+	    }
+	}
+	
+}

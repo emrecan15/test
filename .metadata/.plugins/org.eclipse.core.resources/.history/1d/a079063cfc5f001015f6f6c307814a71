@@ -1,0 +1,11 @@
+package com.filmonersene.website.utils;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class JwtUtil {
+
+	private final String SECRET_KEY = "Ebeneatlarim123+";
+	
+	
+}
