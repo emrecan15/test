@@ -1,6 +1,0 @@
-package com.filmonersene.website.services.abstracts;
-
-
-public interface UserService {
-	
-}

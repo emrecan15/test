@@ -1,8 +1,0 @@
-package com.filmonersene.website.services.abstracts;
-
-import com.filmonersene.website.dtos.request.SaveMovieRequest;
-import com.filmonersene.website.dtos.response.SaveMovieResponse;
-
-public interface MovieService {
-	SaveMovieResponse saveMovie(SaveMovieRequest saveMovieRequest);
-}

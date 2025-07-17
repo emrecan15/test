@@ -1,5 +1,0 @@
-package com.filmonersene.website.dtos.response;
-
-public class GetMoviesResponse {
-
-}

@@ -1,5 +1,0 @@
-package com.filmonersene.website.security;
-
-public class UserDetailsServiceImpl {
-
-}

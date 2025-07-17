@@ -1,5 +1,0 @@
-package com.filmonersene.website.repository;
-
-public interface UserRepository {
-
-}
